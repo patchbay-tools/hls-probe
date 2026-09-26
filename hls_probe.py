@@ -106,9 +106,9 @@ def pick_variant(variants, mode):
     return ordered[len(ordered) // 2]
 
 
-def fetch(url, timeout):
+def fetch(url, timeout, user_agent=USER_AGENT):
     """Return (body, ttfb seconds, total seconds)."""
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    req = urllib.request.Request(url, headers={"User-Agent": user_agent})
     start = time.monotonic()
     with urllib.request.urlopen(req, timeout=timeout) as resp:
         first = resp.read(1)
@@ -125,9 +125,11 @@ def main(argv=None):
     ap.add_argument("--variant", choices=("lowest", "middle", "highest"),
                     default="highest")
     ap.add_argument("--timeout", type=float, default=10.0)
+    ap.add_argument("--user-agent", default=USER_AGENT,
+                    help="User-Agent header to send (some CDNs block unknown clients)")
     args = ap.parse_args(argv)
 
-    body, ttfb, total = fetch(args.url, args.timeout)
+    body, ttfb, total = fetch(args.url, args.timeout, args.user_agent)
     text = body.decode("utf-8", "replace")
     url = args.url
     print(f"playlist  {url}  ttfb={ttfb * 1000:.0f}ms total={total * 1000:.0f}ms")
@@ -140,7 +142,7 @@ def main(argv=None):
         chosen = pick_variant(variants, args.variant)
         print(f"variant   {chosen.bandwidth} bps {chosen.resolution or '-'}")
         url = chosen.uri
-        text = fetch(url, args.timeout)[0].decode("utf-8", "replace")
+        text = fetch(url, args.timeout, args.user_agent)[0].decode("utf-8", "replace")
 
     playlist = parse_media(text, url)
     if not playlist.segments:
@@ -149,7 +151,7 @@ def main(argv=None):
 
     late = 0
     for seg in playlist.segments[-args.segments:]:
-        data, seg_ttfb, seg_total = fetch(seg.uri, args.timeout)
+        data, seg_ttfb, seg_total = fetch(seg.uri, args.timeout, args.user_agent)
         mbps = len(data) * 8 / seg_total / 1e6 if seg_total else 0.0
         over = seg.duration > playlist.target_duration > 0
         slow = seg_total > seg.duration

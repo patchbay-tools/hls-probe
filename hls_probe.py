@@ -97,6 +97,16 @@ def parse_media(text, base_url):
     return playlist
 
 
+def exceeds_target(duration, target):
+    """True when a segment breaks the target duration.
+
+    RFC 8216 compares the EXTINF duration rounded to the nearest integer, so a
+    6.006s segment in a playlist with a 6s target is still in spec. (Not
+    round(): Python rounds 6.5 to even, the spec means half up.)
+    """
+    return target > 0 and int(duration + 0.5) > target
+
+
 def pick_variant(variants, mode):
     ordered = sorted(variants, key=lambda v: v.bandwidth)
     if mode == "lowest":
@@ -153,7 +163,7 @@ def main(argv=None):
     for seg in playlist.segments[-args.segments:]:
         data, seg_ttfb, seg_total = fetch(seg.uri, args.timeout, args.user_agent)
         mbps = len(data) * 8 / seg_total / 1e6 if seg_total else 0.0
-        over = seg.duration > playlist.target_duration > 0
+        over = exceeds_target(seg.duration, playlist.target_duration)
         slow = seg_total > seg.duration
         late += slow
         flags = " ".join(f for f, on in (("OVER-TARGET", over), ("SLOW", slow)) if on)

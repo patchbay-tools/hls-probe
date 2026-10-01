@@ -60,6 +60,12 @@ class ParseTests(unittest.TestCase):
         self.assertEqual([s.duration for s in pl.segments], [6.0, 6.006, 5.972])
         self.assertTrue(pl.segments[-1].uri.endswith("/live/seg1043.ts"))
 
+    def test_exceeds_target_rounds_duration(self):
+        self.assertFalse(hls_probe.exceeds_target(6.006, 6))
+        self.assertFalse(hls_probe.exceeds_target(6.4, 6))
+        self.assertTrue(hls_probe.exceeds_target(6.5, 6))
+        self.assertFalse(hls_probe.exceeds_target(9.0, 0))
+
 
 if __name__ == "__main__":
     unittest.main()
